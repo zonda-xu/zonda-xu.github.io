@@ -4,6 +4,8 @@
   const byId = id => document.getElementById(id);
   const canvas = byId("field");
   const shotMix = byId("shot-mix"), hitMix = byId("hit-mix");
+  const rpm = byId("rpm"), damage = byId("damage");
+  const configStatus = byId("config-status"), cadence = byId("cadence");
   const bank = byId("bank"), log = byId("log"), demo = byId("demo");
   const audio = new FeedbackAudio(available => {
     byId("audio-status").hidden = available;
@@ -13,7 +15,22 @@
   const scene = new TargetScene(canvas, target);
   const samples = new Map();
   let shots = 0, hits = 0, timer = 0, input = null, pointer = null;
+  let lastShotAt = -Infinity;
   let previewTimer = 0;
+
+  function updateSettings() {
+    const validRate = rpm.validity.valid;
+    const validDamage = damage.validity.valid && Number.isSafeInteger(damage.valueAsNumber);
+    rpm.setAttribute("aria-invalid", String(!validRate));
+    damage.setAttribute("aria-invalid", String(!validDamage));
+    const messages = [];
+    if (!validRate) messages.push("请输入 1 至 1800 之间的整数射速。");
+    if (!validDamage) messages.push("单发伤害须为正整数。");
+    configStatus.textContent = messages.join(" ");
+    configStatus.hidden = messages.length === 0;
+    cadence.textContent = validRate ? Math.round(60000 / rpm.valueAsNumber) + " ms / 发" : "";
+    return validRate && validDamage;
+  }
 
   function updateVitals() {
     byId("shield").textContent = target.shield;
@@ -47,7 +64,7 @@
   }
 
   function stopFiring() {
-    clearInterval(timer);
+    clearTimeout(timer);
     timer = 0;
     const captured = pointer;
     pointer = null;
@@ -69,6 +86,7 @@
     audio.reset();
     target = new TrainingTarget();
     shots = hits = 0;
+    lastShotAt = -Infinity;
     scene.reset(target);
     updateVitals();
     log.replaceChildren();
@@ -78,15 +96,14 @@
     byId("announce").textContent = "训练目标已重置";
   }
 
-  function fire() {
-    const now = performance.now();
+  function fire(now) {
     let point = { x: scene.cx, y: scene.cy };
     if (pointer) {
       const box = canvas.getBoundingClientRect();
       point = { x: pointer.clientX - box.left, y: pointer.clientY - box.top };
       if (point.x < 0 || point.x >= box.width || point.y < 0 || point.y >= box.height) return;
     }
-    const event = scene.contains(point) ? target.hit(TrainingTarget.shotDamage, now) : null;
+    const event = scene.contains(point) ? target.hit(damage.valueAsNumber, now) : null;
     audio.fire(event, shots % 3, { shot: shotMix.checked, hit: hitMix.checked });
     shots++;
     scene.impact(event, point, now);
@@ -97,8 +114,21 @@
     }
   }
 
+  // All inputs use the last actual shot as their clock. A delayed timer fires once.
+  function tick() {
+    clearTimeout(timer);
+    const interval = 60000 / rpm.valueAsNumber;
+    const now = performance.now();
+    if (now >= lastShotAt + interval) {
+      lastShotAt = now;
+      fire(now);
+    }
+    if (input) timer = setTimeout(tick, Math.max(0, Math.ceil(lastShotAt + interval - performance.now())));
+  }
+
   function startFiring(kind, pointerEvent) {
     stopFiring();
+    if (!updateSettings()) return;
     clearPreview();
     audio.arm();
     input = kind;
@@ -110,8 +140,7 @@
       demo.classList.add("running");
       byId("demo-label").textContent = "停止演示";
     }
-    fire();
-    if (input) timer = setInterval(fire, kind === "demo" ? 230 : 135);
+    tick();
   }
 
   // Draw min/max sample windows; every card uses its actual first PCM variant.
@@ -132,7 +161,7 @@
     }
   }
 
-  for (const kind of ["shield", "break", "body", "down"]) {
+  for (const kind of ["shot", "shield", "break", "body", "down"]) {
     const cue = ImpactSound.cues[kind];
     const button = document.createElement("button");
     button.type = "button"; button.className = "sample"; button.dataset.cue = kind;
@@ -174,7 +203,8 @@
     });
   }
   document.addEventListener("keydown", event => {
-    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing ||
+        event.target === rpm || event.target === damage) return;
     if (event.code === "KeyR" && !event.repeat) { reset(); return; }
     if (event.target !== canvas && event.target !== document.body) return;
     if (event.code !== "Space" && event.code !== "Enter") return;
@@ -189,6 +219,7 @@
   byId("reset").addEventListener("click", reset);
   demo.addEventListener("click", () => {
     if (input === "demo") { stopFiring(); return; }
+    if (!updateSettings()) return;
     reset();
     startFiring("demo");
   });
@@ -197,5 +228,12 @@
     audio.setLevel(value / 100);
     byId("volume-value").textContent = value + "%";
   });
+  for (const field of [rpm, damage]) {
+    field.addEventListener("input", () => {
+      clearTimeout(timer);
+      if (updateSettings() && input) tick();
+    });
+  }
+  updateSettings();
   updateVitals();
 })();

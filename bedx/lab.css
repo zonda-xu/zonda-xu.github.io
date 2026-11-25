@@ -59,6 +59,15 @@ h2 { font-weight: 650; font-size: 17px; letter-spacing: .005em; }
 .field-guide { display: flex; align-items: center; gap: 16px; padding: 8px 20px; color: #a1b3ad; background: #131d1d; border-block: 1px solid var(--faint-line); font-size: 11px; }
 .field-guide span { white-space: nowrap; }
 kbd { border: 1px solid #41524c; border-radius: 3px; padding: 1px 4px; font: 10px var(--mono); color: #c1d0c9; }
+.weapon-settings { display: flex; align-items: center; gap: 10px 22px; flex-wrap: wrap; min-width: 0; margin: 0; padding: 12px 20px; border: 0; border-bottom: 1px solid var(--faint-line); }
+.weapon-settings label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.number-unit { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid #485852; border-radius: 4px; background: var(--bg); }
+.number-unit:focus-within { border-color: var(--accent); }
+.number-unit input { width: 6ch; min-height: 26px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 14px var(--mono); }
+.number-unit input[aria-invalid="true"] { color: #ffba9d; }
+.number-unit span, #cadence { color: var(--muted); font-size: 11px; }
+#cadence { margin-left: auto; font-variant-numeric: tabular-nums; }
+#config-status { padding: 6px 20px 0; font-size: 12px; color: #ffba9d; }
 .mixer { display: flex; gap: 12px; align-items: center; justify-content: space-between; min-height: 58px; padding: 12px 20px; }
 .mixer fieldset { display: flex; gap: 15px; padding: 0; margin: 0; border: 0; }
 .switch, .volume { display: flex; align-items: center; color: #c1cec8; font-size: 12px; gap: 7px; white-space: nowrap; }
@@ -74,7 +83,7 @@ kbd { border: 1px solid #41524c; border-radius: 3px; padding: 1px 4px; font: 10p
 #audio-status { padding: 0 20px 10px; font-size: 12px; color: #f4cb89; }
 .bank-panel { padding: 20px; display: flex; flex-direction: column; }
 .bank-intro p { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.bank { display: grid; grid-template-rows: repeat(4, 1fr); gap: 9px; flex: 1; margin-top: 17px; }
+.bank { display: grid; grid-template-rows: repeat(5, 1fr); gap: 9px; flex: 1; margin-top: 17px; }
 .sample { width: 100%; display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(40px, 75px); align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px; text-align: left; background: #1d2726; border: 1px solid #35433e; border-radius: 6px; }
 .sample:hover, .sample.playing { border-color: var(--cue); background: #25312e; }
 .sample .play { width: 30px; height: 30px; border: 1px solid #506058; border-radius: 50%; color: var(--cue); display: grid; place-items: center; }
@@ -112,10 +121,13 @@ kbd { border: 1px solid #41524c; border-radius: 3px; padding: 1px 4px; font: 10p
   #field { height: clamp(260px, 56vw, 335px); }
   .bank { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; margin-top: 12px; }
   .sample { grid-template-columns: minmax(0, 1fr) 40px; }
+  .sample[data-cue="shot"] { grid-column: 1 / -1; }
   .sample .play { display: none; }
   .vitals { left: 14px; width: 112px; }
   .target-state { right: 14px; }
-  .field-guide, .panel-head, .mixer { padding-inline: 14px; }
+  .field-guide, .panel-head, .mixer, .weapon-settings, #config-status { padding-inline: 14px; }
+  .weapon-settings { gap: 7px 16px; }
+  .number-unit input { font-size: 16px; }
   .mixer fieldset { gap: 10px; }
   .trace { margin-top: 12px; }
 }

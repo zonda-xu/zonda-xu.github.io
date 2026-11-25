@@ -3,12 +3,39 @@
 const ImpactSound = (() => {
   const rate = 44100;
   const cues = {
-    shield: { label: "命中护盾", detail: "金属短鸣", seconds: 0.15, peak: 0.61, color: "#76edce" },
-    break:  { label: "破盾", detail: "脆响与碎片尾音", seconds: 0.34, peak: 0.83, color: "#c0a8ff" },
-    body:   { label: "命中本体", detail: "短促的闷击", seconds: 0.12, peak: 0.67, color: "#ffa789" },
-    down:   { label: "击倒", detail: "两段下行收束音", seconds: 0.46, peak: 0.82, color: "#f5ce83" },
-    shot:   { seconds: 0.105, peak: 0.44 }
+    shot:   { label: "枪械开火", detail: "爆响、低频冲击与短回声", seconds: 0.205, peak: 0.72, color: "#d2d9d2" },
+    shield: { label: "命中护盾", detail: "低沉敲击，带一点金属余振", seconds: 0.145, peak: 0.65, color: "#76edce" },
+    break:  { label: "破盾", detail: "裂开、崩碎、碎片弹落", seconds: 0.685, peak: 0.88, color: "#c0a8ff" },
+    body:   { label: "命中本体", detail: "短而干的闷击", seconds: 0.115, peak: 0.66, color: "#ffa789" },
+    down:   { label: "击倒", detail: "重击后两段下沉", seconds: 0.42, peak: 0.80, color: "#f5ce83" }
   };
+
+  const clipRate = 24000;
+  function decodeClip(encoded) {
+    return Float32Array.from(atob(encoded), char => {
+      const byte = char.charCodeAt(0);
+      const value = byte < 128 ? byte : byte - 256;
+      return Math.sign(value) * (256 ** (Math.abs(value) / 127) - 1) / 255;
+    });
+  }
+  const glass = decodeClip(foleyClips.glass);
+  const blast = decodeClip(foleyClips.shot);
+
+  // Mix a full recording or a short slice at an independently chosen playback speed.
+  function clip(out, pcm, start, speed, level, from = 0, seconds = pcm.length / clipRate - from) {
+    const offset = Math.round(start * rate);
+    const step = speed * clipRate / rate;
+    const first = from * clipRate;
+    const frames = Math.min(out.length - offset, Math.floor(
+      Math.min(seconds * clipRate, pcm.length - 1 - first) / step));
+    for (let i = 0; i < frames; i++) {
+      const position = first + i * step;
+      const index = Math.floor(position);
+      const sample = pcm[index] + (pcm[index + 1] - pcm[index]) * (position - index);
+      const edge = Math.min(1, i / (rate * 0.0006), (frames - 1 - i) / (rate * 0.006));
+      out[offset + i] += level * edge * sample;
+    }
+  }
 
   // A damped resonator. The pitch falls exponentially from startHz to endHz.
   function tone(out, start, duration, startHz, endHz, sweep, decay, level) {
@@ -61,37 +88,39 @@ const ImpactSound = (() => {
     const pitch = [1, 0.976, 1.028][variation % 3];
     switch (kind) {
       case "shot":
-        noise(out, random, 0, 0.083, 680, 0.62, 0.014, 1.4);
-        noise(out, random, 0.002, 0.042, 2850, 0.85, 0.007, 0.5);
-        tone(out, 0, 0.10, 185 * pitch, 70, 0.012, 0.026, 0.6);
+        clip(out, blast, 0, 0.98 * pitch, 1.08);
+        noise(out, random, 0, 0.040, 920, 0.65, 0.006, 1.05);
+        tone(out, 0.002, 0.120, 154 * pitch, 62, 0.014, 0.033, 0.59);
+        noise(out, random, 0.041, 0.085, 510, 0.7, 0.021, 0.62);
+        noise(out, random, 0.085, 0.035, 1510, 0.95, 0.007, 0.29);
         break;
       case "shield":
-        noise(out, random, 0, 0.031, 3100, 1.0, 0.006, 0.85);
-        tone(out, 0, 0.082, 1140 * pitch, 830 * pitch, 0.013, 0.018, 0.64);
-        tone(out, 0.002, 0.15, 1960 * pitch, 1580 * pitch, 0.025, 0.033, 0.48);
-        tone(out, 0.004, 0.084, 2890 * pitch, 2700, 0.024, 0.016, 0.20);
+        noise(out, random, 0, 0.038, 1280, 0.9, 0.007, 1.24);
+        tone(out, 0, 0.10, 282 * pitch, 174 * pitch, 0.008, 0.024, 0.83);
+        tone(out, 0.003, 0.145, 517 * pitch, 443 * pitch, 0.010, 0.036, 0.44);
+        tone(out, 0.007, 0.095, 883 * pitch, 786 * pitch, 0.010, 0.020, 0.18);
         break;
       case "break":
-        noise(out, random, 0, 0.104, 2280, 0.56, 0.019, 2.0);
-        tone(out, 0, 0.12, 390 * pitch, 119, 0.019, 0.03, 0.54);
-        for (const [start, hz, level] of [[0.004, 2690, 0.65], [0.019, 3980, 0.43],
-               [0.047, 2060, 0.47], [0.083, 3260, 0.33], [0.129, 1620, 0.27]]) {
-          tone(out, start, 0.195, hz * pitch, hz * pitch * 0.79, 0.027, 0.036, level);
-          noise(out, random, start, 0.039, hz, 1.3, 0.010, level);
-        }
+        // Stress crack, the whole breaking bottle, then two overlapping clusters of debris.
+        tone(out, 0, 0.135, 248 * pitch, 79, 0.012, 0.036, 0.83);
+        noise(out, random, 0, 0.05, 760, 0.64, 0.009, 2.35);
+        clip(out, glass, 0.017, 0.87 * pitch, 1.25);
+        noise(out, random, 0.030, 0.094, 448, 0.77, 0.023, 1.45);
+        clip(out, glass, 0.072, 0.67 * pitch, 0.86, 0.286, 0.090);
+        clip(out, glass, 0.162, 1.04 * pitch, 0.70, 0.299, 0.075);
         break;
       case "body":
-        noise(out, random, 0, 0.075, 900, 0.65, 0.012, 1.25);
-        tone(out, 0, 0.12, 246 * pitch, 101 * pitch, 0.013, 0.025, 0.94);
-        tone(out, 0.002, 0.072, 620 * pitch, 329, 0.018, 0.016, 0.37);
+        noise(out, random, 0, 0.068, 560, 0.60, 0.013, 2.0);
+        tone(out, 0, 0.115, 175 * pitch, 77 * pitch, 0.009, 0.023, 0.87);
+        tone(out, 0.003, 0.059, 365 * pitch, 198, 0.010, 0.012, 0.35);
+        noise(out, random, 0.012, 0.044, 850, 0.72, 0.009, 0.55);
         break;
       case "down":
-        noise(out, random, 0, 0.075, 1420, 0.66, 0.012, 1.0);
-        tone(out, 0, 0.20, 176, 68, 0.020, 0.049, 0.83);
-        for (const [start, hz, level, tail] of [[0, 624, 0.59, 0.040], [0.087, 386, 0.68, 0.065]]) {
-          tone(out, start, 0.37, hz * 1.12 * pitch, hz * pitch, 0.018, tail, level);
-          tone(out, start + 0.002, 0.23, hz * 2.09 * pitch, hz * 2 * pitch, 0.026, tail * 0.55, level * 0.28);
-        }
+        noise(out, random, 0, 0.070, 830, 0.66, 0.012, 1.65);
+        tone(out, 0, 0.155, 152 * pitch, 66, 0.014, 0.034, 0.72);
+        tone(out, 0.009, 0.19, 364 * pitch, 281 * pitch, 0.020, 0.044, 0.62);
+        tone(out, 0.105, 0.315, 211 * pitch, 144 * pitch, 0.029, 0.064, 0.71);
+        tone(out, 0.110, 0.182, 408 * pitch, 293, 0.022, 0.031, 0.20);
         break;
     }
     let peak = 0;
@@ -108,6 +137,7 @@ class FeedbackAudio {
   constructor(onAvailability) {
     this.onAvailability = onAvailability;
     this.level = 0.65;
+    this.fragmentsUntil = 0;
     this.active = new Set();
     this.buffers = new Map();
     this.samples = new Map();
@@ -156,7 +186,7 @@ class FeedbackAudio {
     if (this.master) this.master.gain.setTargetAtTime(value, this.ctx.currentTime, 0.008);
   }
 
-  startVoice(kind, variation, bus, at) {
+  startVoice(kind, variation, bus, at, level = 1) {
     const key = kind + variation;
     if (!this.buffers.has(key)) {
       const pcm = this.samples.get(kind)[variation];
@@ -166,11 +196,16 @@ class FeedbackAudio {
     }
     const source = this.ctx.createBufferSource();
     source.buffer = this.buffers.get(key);
-    source.connect(bus);
+    const trim = level === 1 ? null : this.ctx.createGain();
+    if (trim) {
+      trim.gain.value = level;
+      source.connect(trim).connect(bus);
+    } else source.connect(bus);
     this.active.add(source);
     source.onended = () => {
       this.active.delete(source);
       source.disconnect();
+      if (trim) trim.disconnect();
       if (this.previewVoice === source) this.previewVoice = null;
     };
     source.start(at);
@@ -180,20 +215,28 @@ class FeedbackAudio {
   fire(event, variation, mix) {
     if (!this.ctx) return;
     const at = this.ctx.currentTime;
-    if (event && mix.hit && (event.kind === "break" || event.kind === "down")) {
-      const gain = this.weapon.gain;
-      gain.cancelScheduledValues(at);
-      gain.setTargetAtTime(0.32, at, 0.0015);
-      gain.setTargetAtTime(1, at + (event.kind === "down" ? 0.145 : 0.10), 0.018);
-    }
     if (mix.shot) this.startVoice("shot", variation, this.weapon, at);
-    if (event && mix.hit) this.startVoice(event.kind, variation, this.confirm, at);
+    if (!event || !mix.hit) return;
+    const impactAt = at + 0.022;
+    const transition = event.kind === "break" || event.kind === "down";
+    if (transition) {
+      const gain = this.weapon.gain;
+      const duckAt = at + 0.012;
+      gain.cancelScheduledValues(duckAt);
+      gain.setTargetAtTime(0.43, duckAt, 0.004);
+      if (event.kind === "break") this.fragmentsUntil = impactAt + 0.32;
+      const recoverAt = Math.max(this.fragmentsUntil, impactAt + 0.16);
+      gain.setTargetAtTime(1, recoverAt, 0.026);
+    }
+    const level = !transition && impactAt < this.fragmentsUntil ? 0.52 : 1;
+    this.startVoice(event.kind, variation, this.confirm, impactAt, level);
   }
 
   preview(kind) {
     if (!this.ctx) return;
     this.stopPreview();
-    this.previewVoice = this.startVoice(kind, 0, this.confirm, this.ctx.currentTime);
+    const bus = kind === "shot" ? this.weapon : this.confirm;
+    this.previewVoice = this.startVoice(kind, 0, bus, this.ctx.currentTime);
   }
 
   stopPreview() {
@@ -202,6 +245,7 @@ class FeedbackAudio {
   }
 
   reset() {
+    this.fragmentsUntil = 0;
     for (const source of this.active) source.stop();
     if (this.weapon) {
       const now = this.ctx.currentTime;

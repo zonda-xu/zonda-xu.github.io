@@ -4,7 +4,6 @@
 class TrainingTarget {
   static shieldCapacity = 60;
   static healthCapacity = 100;
-  static shotDamage = 24;
   static stackWindowMs = 650;
 
   constructor() {

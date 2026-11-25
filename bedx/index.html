@@ -6,11 +6,12 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#101516">
   <title>BEDX · 命中反馈实验台</title>
-  <link rel="stylesheet" href="lab.css">
-  <script defer src="src/target.js"></script>
-  <script defer src="src/sound.js"></script>
-  <script defer src="src/scene.js"></script>
-  <script defer src="src/lab.js"></script>
+  <link rel="stylesheet" href="lab.css?v=2">
+  <script defer src="src/target.js?v=2"></script>
+  <script defer src="src/foley.js?v=2"></script>
+  <script defer src="src/sound.js?v=2"></script>
+  <script defer src="src/scene.js?v=2"></script>
+  <script defer src="src/lab.js?v=2"></script>
 </head>
 <body>
   <header class="site-head">
@@ -42,6 +43,13 @@
           <div class="target-state" id="target-state">护盾在线</div>
         </div>
         <div class="field-guide"><span>点按单发 · 按住连发</span><span class="key-guide"><kbd>Space</kbd> 中央命中</span><span class="key-guide"><kbd>R</kbd> 重置</span></div>
+        <fieldset class="weapon-settings">
+          <legend class="sr-only">射击参数</legend>
+          <label for="rpm">射速 <span class="number-unit"><input id="rpm" type="number" min="1" max="1800" step="1" value="450" inputmode="numeric" required aria-describedby="cadence config-status"><span>RPM</span></span></label>
+          <label for="damage">单发伤害 <span class="number-unit"><input id="damage" type="number" min="1" step="1" value="24" inputmode="numeric" required aria-describedby="config-status"><span>点</span></span></label>
+          <output id="cadence" for="rpm"></output>
+        </fieldset>
+        <p id="config-status" role="status" hidden></p>
         <div class="mixer">
           <fieldset><legend class="sr-only">靶场音轨</legend>
             <label class="switch"><input id="shot-mix" type="checkbox" checked><i aria-hidden="true"></i>开火声</label>
@@ -53,7 +61,7 @@
       </section>
 
       <section class="panel bank-panel" aria-labelledby="bank-heading">
-        <div class="bank-intro"><h2 id="bank-heading">事件试听</h2><p>点击波形，单独听一种命中音。</p></div>
+        <div class="bank-intro"><h2 id="bank-heading">事件试听</h2><p>点击波形，单独听枪声或一种命中音。</p></div>
         <div id="bank" class="bank"></div>
       </section>
     </div>
